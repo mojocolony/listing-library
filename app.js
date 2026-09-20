@@ -6,6 +6,12 @@ let sortMode=localStorage.getItem('listing-library:sort')||'newest';
 const $=s=>document.querySelector(s),grid=$('#grid'),lib=$('#libraryView'),detailView=$('#detailView'),back=$('#back');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fold=s=>String(s??'').trim().toLocaleLowerCase();
+const appBase=()=>`${location.pathname}${location.search}`;
+const slugify=s=>String(s??'').trim().toLocaleLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+const propertySlug=p=>slugify(p.id||p.address);
+const propertyUrl=p=>`${appBase()}#property/${encodeURIComponent(propertySlug(p))}`;
+function hashPropertySlug(){const m=location.hash.match(/^#property\/(.+)$/);if(!m)return'';try{return decodeURIComponent(m[1])}catch{return m[1]}}
+function findPropertyBySlug(slug){return properties.find(p=>propertySlug(p)===slug)}
 
 function metaKey(p){return `listing-library:${p.address}`}
 function parseAddedAt(value){
@@ -116,13 +122,21 @@ function render(){
 grid.onclick=e=>{
   const f=e.target.closest('[data-fav]');
   if(f){e.stopPropagation();const p=properties.find(x=>x.id===f.dataset.fav);if(!p)return;p.favorite=!p.favorite;saveMeta(p);render();return}
-  const c=e.target.closest('.card');if(c){const p=properties.find(x=>x.id===c.dataset.id);if(p)openProperty(p)}
+  const c=e.target.closest('.card');if(c){const p=properties.find(x=>x.id===c.dataset.id);if(p)openProperty(p,{historyMode:'push'})}
 };
 
 function detailTagsMarkup(p){
   return (p.tags||[]).length?`<div class="detailTags">${p.tags.map(t=>`<button class="tagChip" data-detail-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>`:'';
 }
-function openProperty(p){
+function showLibrary({historyMode='none'}={}){
+  detailView.classList.add('hidden');lib.classList.remove('hidden');back.classList.add('hidden');
+  if(historyMode==='push')history.pushState({listingLibrary:true,view:'library'},'',appBase());
+  else if(historyMode==='replace')history.replaceState({listingLibrary:true,view:'library'},'',appBase());
+  render();
+}
+function openProperty(p,{historyMode='none'}={}){
+  if(historyMode==='push')history.pushState({listingLibrary:true,view:'property',slug:propertySlug(p)},'',propertyUrl(p));
+  else if(historyMode==='replace')history.replaceState({listingLibrary:true,view:'property',slug:propertySlug(p)},'',propertyUrl(p));
   lib.classList.add('hidden');detailView.classList.remove('hidden');back.classList.remove('hidden');
   const chips=[p.listingId?`<span class="chip">Listing ${esc(p.listingId)}</span>`:'',p.photos?.length?`<span class="chip">${p.photos.length} photos</span>`:'',p.floorplans?.length?`<span class="chip">${p.floorplans.length} floorplans</span>`:''].filter(Boolean).join('');
   const tabs=[['photos','Photos',p.photos?.length],['floorplans','Floorplans',p.floorplans?.length],['listing','Listing',p.listing?.length],['video','Video',!!p.video],['details','Details',true]].filter(x=>x[2]);
@@ -130,7 +144,7 @@ function openProperty(p){
   const panel=$('#panel'),tagSlot=$('#detailTagsSlot');
 
   function wireDetailTagClicks(){
-    tagSlot.onclick=e=>{const b=e.target.closest('[data-detail-tag]');if(!b)return;activeTag=b.dataset.detailTag;detailView.classList.add('hidden');lib.classList.remove('hidden');back.classList.add('hidden');viewMode='all';render()};
+    tagSlot.onclick=e=>{const b=e.target.closest('[data-detail-tag]');if(!b)return;activeTag=b.dataset.detailTag;viewMode='all';showLibrary({historyMode:'push'})};
   }
   wireDetailTagClicks();
 
@@ -199,7 +213,7 @@ function openProperty(p){
 
   tab(tabs[0][0]);
   document.querySelector('.tabs').onclick=e=>{if(e.target.dataset.tab)tab(e.target.dataset.tab)};
-  $('#detailFav').onclick=()=>{p.favorite=!p.favorite;saveMeta(p);openProperty(p)};
+  $('#detailFav').onclick=()=>{p.favorite=!p.favorite;saveMeta(p);openProperty(p,{historyMode:'none'})};
 }
 
 function openViewer(items,start=0,label='Photo'){
@@ -212,7 +226,8 @@ function openViewer(items,start=0,label='Photo'){
   overlay.querySelector('.viewerClose').onclick=close;overlay.querySelector('.viewerPrev').onclick=e=>{e.stopPropagation();move(-1)};overlay.querySelector('.viewerNext').onclick=e=>{e.stopPropagation();move(1)};overlay.onclick=e=>{if(e.target===overlay)close()};overlay.querySelector('figure').onclick=e=>e.stopPropagation();document.addEventListener('keydown',keys);show();overlay.querySelector('.viewerClose').focus();
 }
 
-back.onclick=()=>{detailView.classList.add('hidden');lib.classList.remove('hidden');back.classList.add('hidden');render()};
+back.onclick=()=>showLibrary({historyMode:'push'});
+window.addEventListener('popstate',()=>routeFromLocation());
 $('#search').oninput=render;
 $('#allView').onclick=()=>{viewMode='all';render()};
 $('#favView').onclick=()=>{viewMode='favourites';render()};
@@ -256,8 +271,21 @@ $('#openLibrary').onclick=async()=>{
         found.push(p);
       }
     }
-    if(found.length){properties=found;activeTag='';render()}
+    if(found.length){properties=found;activeTag='';routeFromLocation({replaceCurrent:true})}
   }catch(e){if(e.name!=='AbortError')alert('Could not open that folder.')}
 };
 
-render();
+function routeFromLocation({replaceCurrent=false}={}){
+  const slug=hashPropertySlug();
+  if(slug){
+    const p=findPropertyBySlug(slug);
+    if(p){openProperty(p,{historyMode:replaceCurrent?'replace':'none'});return}
+    // The URL may refer to a property in a folder-backed library that has not been opened yet.
+    lib.classList.remove('hidden');detailView.classList.add('hidden');back.classList.add('hidden');render();
+    if(replaceCurrent)history.replaceState({listingLibrary:true,view:'property',slug,pending:true},'',location.href);
+    return;
+  }
+  showLibrary({historyMode:replaceCurrent?'replace':'none'});
+}
+
+routeFromLocation({replaceCurrent:true});
