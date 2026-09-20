@@ -48,11 +48,25 @@ function updateTagFilter(){
   select.innerHTML='<option value="">All tags</option>'+tags.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   const match=tags.find(t=>fold(t)===fold(current));activeTag=match||'';select.value=activeTag;
 }
+function addressSortParts(address=''){
+  const full=String(address).trim();
+  const match=full.match(/^(\d+(?:[-–]\d+)?[A-Za-z]?)\s+(.+)$/);
+  if(!match)return {street:full,number:Number.MAX_SAFE_INTEGER,full};
+  return {street:match[2].trim(),number:parseInt(match[1],10),full};
+}
+function compareStreetAddress(a,b){
+  const aa=addressSortParts(a.address),bb=addressSortParts(b.address);
+  const street=aa.street.localeCompare(bb.street,undefined,{numeric:true,sensitivity:'base'});
+  if(street)return street;
+  const number=aa.number-bb.number;
+  if(number)return number;
+  return aa.full.localeCompare(bb.full,undefined,{numeric:true,sensitivity:'base'});
+}
 function sortProperties(list){
   return [...list].sort((a,b)=>{
-    if(sortMode==='az')return a.address.localeCompare(b.address,undefined,{numeric:true,sensitivity:'base'});
-    if(sortMode==='za')return b.address.localeCompare(a.address,undefined,{numeric:true,sensitivity:'base'});
-    return (Number(b.addedAt)||0)-(Number(a.addedAt)||0)||a.address.localeCompare(b.address,undefined,{numeric:true,sensitivity:'base'});
+    if(sortMode==='az')return compareStreetAddress(a,b);
+    if(sortMode==='za')return -compareStreetAddress(a,b);
+    return (Number(b.addedAt)||0)-(Number(a.addedAt)||0)||compareStreetAddress(a,b);
   });
 }
 function render(){
