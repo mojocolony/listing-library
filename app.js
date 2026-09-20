@@ -10,6 +10,48 @@ const appBase=()=>`${location.pathname}${location.search}`;
 const slugify=s=>String(s??'').trim().toLocaleLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 const propertySlug=p=>slugify(p.id||p.address);
 const propertyUrl=p=>`${appBase()}#property/${encodeURIComponent(propertySlug(p))}`;
+
+
+// Remember the user's chosen library directory in IndexedDB. File-system handles
+// can be persisted by Chromium-based browsers, while permission remains under
+// the browser's control.
+const HANDLE_DB='listing-library-handles',HANDLE_STORE='settings',HANDLE_KEY='libraryRoot';
+let rememberedRoot=null,libraryConnected=false;
+function openHandleDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(HANDLE_DB,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(HANDLE_STORE))req.result.createObjectStore(HANDLE_STORE)};
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+}
+async function storeRootHandle(handle){
+  try{
+    const db=await openHandleDB();
+    await new Promise((resolve,reject)=>{const tx=db.transaction(HANDLE_STORE,'readwrite');tx.objectStore(HANDLE_STORE).put(handle,HANDLE_KEY);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+    db.close();rememberedRoot=handle;return true;
+  }catch(e){console.warn('Could not remember the library folder.',e);return false}
+}
+async function loadRootHandle(){
+  try{
+    const db=await openHandleDB();
+    const value=await new Promise((resolve,reject)=>{const tx=db.transaction(HANDLE_STORE,'readonly');const req=tx.objectStore(HANDLE_STORE).get(HANDLE_KEY);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)});
+    db.close();return value;
+  }catch(e){console.warn('Could not load the remembered library folder.',e);return null}
+}
+async function handlePermission(handle,request=false){
+  if(!handle)return'denied';
+  try{
+    const opts={mode:'readwrite'};
+    let state=await handle.queryPermission(opts);
+    if(state==='granted'||!request)return state;
+    return await handle.requestPermission(opts);
+  }catch(e){console.warn('Could not check library folder permission.',e);return'denied'}
+}
+function setLibraryButton(state){
+  const btn=$('#openLibrary');
+  btn.textContent=state==='connected'?'Change Library':state==='reconnect'?'Reconnect Library':'Open Library';
+  btn.dataset.libraryState=state;
+}
 function hashPropertySlug(){const m=location.hash.match(/^#property\/(.+)$/);if(!m)return'';try{return decodeURIComponent(m[1])}catch{return m[1]}}
 function findPropertyBySlug(slug){return properties.find(p=>propertySlug(p)===slug)}
 
@@ -258,22 +300,46 @@ async function scanProperty(dir){
   p.photos=p.photos.map(x=>x.url);p.cover=p.photos[0]||'';return p;
 }
 
+async function scanLibraryRoot(root){
+  const found=[],scanStamp=Date.now();let unseenOffset=0;
+  for await(const [,h] of root.entries())if(h.kind==='directory'){
+    const p=await scanProperty(h);
+    if(p.photos.length||p.listing.length||p.floorplans.length){
+      if(!p.addedAt)p.addedAt=scanStamp-(unseenOffset++);
+      if(!p._metaFileExists&&!p._metaReadError)await saveMeta(p);
+      else cacheMeta(p);
+      found.push(p);
+    }
+  }
+  if(found.length){
+    properties=found;activeTag='';rememberedRoot=root;libraryConnected=true;setLibraryButton('connected');routeFromLocation({replaceCurrent:true});return true;
+  }
+  return false;
+}
+
 $('#openLibrary').onclick=async()=>{
   if(!window.showDirectoryPicker){alert('Folder access is not supported in this browser. Try Chrome or Edge on desktop.');return}
   try{
-    const root=await showDirectoryPicker({mode:'readwrite'}),found=[],scanStamp=Date.now();let unseenOffset=0;
-    for await(const [,h] of root.entries())if(h.kind==='directory'){
-      const p=await scanProperty(h);
-      if(p.photos.length||p.listing.length||p.floorplans.length){
-        if(!p.addedAt)p.addedAt=scanStamp-(unseenOffset++);
-        if(!p._metaFileExists&&!p._metaReadError)await saveMeta(p);
-        else cacheMeta(p);
-        found.push(p);
-      }
+    const state=$('#openLibrary').dataset.libraryState;
+    if(state==='reconnect'&&rememberedRoot){
+      const permission=await handlePermission(rememberedRoot,true);
+      if(permission==='granted'){await scanLibraryRoot(rememberedRoot);return}
     }
-    if(found.length){properties=found;activeTag='';routeFromLocation({replaceCurrent:true})}
+    const root=await showDirectoryPicker({mode:'readwrite'});
+    await storeRootHandle(root);
+    await scanLibraryRoot(root);
   }catch(e){if(e.name!=='AbortError')alert('Could not open that folder.')}
 };
+
+async function restoreRememberedLibrary(){
+  if(!('indexedDB'in window)||!window.showDirectoryPicker)return;
+  rememberedRoot=await loadRootHandle();
+  if(!rememberedRoot){setLibraryButton('open');return}
+  const permission=await handlePermission(rememberedRoot,false);
+  if(permission==='granted'){
+    try{await scanLibraryRoot(rememberedRoot)}catch(e){console.warn('Could not reopen the remembered library.',e);setLibraryButton('reconnect')}
+  }else setLibraryButton('reconnect');
+}
 
 function routeFromLocation({replaceCurrent=false}={}){
   const slug=hashPropertySlug();
@@ -289,3 +355,4 @@ function routeFromLocation({replaceCurrent=false}={}){
 }
 
 routeFromLocation({replaceCurrent:true});
+restoreRememberedLibrary();
