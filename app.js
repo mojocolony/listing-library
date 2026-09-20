@@ -8,16 +8,47 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fold=s=>String(s??'').trim().toLocaleLowerCase();
 
 function metaKey(p){return `listing-library:${p.address}`}
-function loadMeta(p){
+function parseAddedAt(value){
+  if(typeof value==='string'){const n=Date.parse(value);return Number.isFinite(n)?n:0}
+  const n=Number(value);return Number.isFinite(n)?n:0;
+}
+function applyMeta(p,m={}){
+  Object.assign(p,{tags:Array.isArray(m.tags)?m.tags:(p.tags||[]),notes:typeof m.notes==='string'?m.notes:(p.notes||''),favorite:typeof m.favorite==='boolean'?m.favorite:!!p.favorite,addedAt:parseAddedAt(m.addedAt)||p.addedAt||0});
+}
+function localMetaPayload(p){return {tags:p.tags||[],notes:p.notes||'',favorite:!!p.favorite,addedAt:Number(p.addedAt)||0}}
+function folderMetaPayload(p){return {version:1,favorite:!!p.favorite,tags:p.tags||[],notes:p.notes||'',addedAt:p.addedAt?new Date(Number(p.addedAt)).toISOString():null}}
+function loadLocalMeta(p){
+  try{applyMeta(p,JSON.parse(localStorage.getItem(metaKey(p))||'{}'))}catch{}
+}
+function cacheMeta(p){
+  try{localStorage.setItem(metaKey(p),JSON.stringify(localMetaPayload(p)))}catch{}
+}
+async function loadFolderMeta(p,dir){
   try{
-    const m=JSON.parse(localStorage.getItem(metaKey(p))||'{}');
-    Object.assign(p,{tags:Array.isArray(m.tags)?m.tags:(p.tags||[]),notes:m.notes??p.notes,favorite:m.favorite??p.favorite,addedAt:Number(m.addedAt)||p.addedAt||0});
-  }catch{}
+    const handle=await dir.getFileHandle('property.json');
+    const file=await handle.getFile();
+    const data=JSON.parse(await file.text());
+    applyMeta(p,data);p._metaFileExists=true;cacheMeta(p);return true;
+  }catch(e){
+    if(e?.name==='NotFoundError')return false;
+    p._metaReadError=true;console.warn(`Could not read ${p.address}/property.json`,e);return false;
+  }
+}
+async function writeFolderMeta(p){
+  if(!p._dirHandle||p._metaReadError)return false;
+  const handle=await p._dirHandle.getFileHandle('property.json',{create:true});
+  const writable=await handle.createWritable();
+  await writable.write(JSON.stringify(folderMetaPayload(p),null,2)+'\n');
+  await writable.close();p._metaFileExists=true;return true;
 }
 function saveMeta(p){
-  localStorage.setItem(metaKey(p),JSON.stringify({tags:p.tags||[],notes:p.notes||'',favorite:!!p.favorite,addedAt:Number(p.addedAt)||0}));
+  cacheMeta(p);
+  if(!p._dirHandle||p._metaReadError)return Promise.resolve(false);
+  const previous=p._writeChain||Promise.resolve();
+  p._writeChain=previous.catch(()=>{}).then(()=>writeFolderMeta(p));
+  return p._writeChain.catch(e=>{console.warn(`Could not save ${p.address}/property.json`,e);return false});
 }
-loadMeta(sample);
+loadLocalMeta(sample);
 
 function canonicalTags(){
   const seen=new Map();
@@ -109,13 +140,21 @@ function openProperty(p){
     if(name==='floorplans')panel.innerHTML=`<div class="gallery floorplans">${p.floorplans.map((x,i)=>`<figure><img src="${x.url}" loading="lazy" data-viewer="floorplans" data-index="${i}" tabindex="0" alt="${esc(x.name)}"><figcaption>${esc(x.name)}</figcaption></figure>`).join('')}</div>`;
     if(name==='listing')panel.innerHTML=p.listing.map(x=>`<div class="fileCard"><span>${esc(x.name)}</span><a href="${x.url}" target="_blank">Open ↗</a></div>`).join('');
     if(name==='video')panel.innerHTML=p.video?`<div class="fileCard"><span>Property video / virtual tour</span><a href="${p.video}" target="_blank">Open video ↗</a></div>`:'';
-    if(name==='details')panel.innerHTML=`<div class="notes"><div class="fieldGroup"><div class="fieldHeading">Tags</div><div class="tagEditor"><div id="assignedTags" class="assignedTags"></div><div class="tagInputWrap"><input id="tagInput" type="text" autocomplete="off" placeholder="Add a tag"><div id="tagSuggestions" class="tagSuggestions hidden"></div></div></div></div><label class="fieldLabel">Notes<textarea id="notes" placeholder="Add notes about this property…">${esc(p.notes||'')}</textarea></label><div class="saveStatus" id="saveStatus">Saved locally in this browser</div></div>`;
+    if(name==='details')panel.innerHTML=`<div class="notes"><div class="fieldGroup"><div class="fieldHeading">Tags</div><div class="tagEditor"><div id="assignedTags" class="assignedTags"></div><div class="tagInputWrap"><input id="tagInput" type="text" autocomplete="off" placeholder="Add a tag"><div id="tagSuggestions" class="tagSuggestions hidden"></div></div></div></div><label class="fieldLabel">Notes<textarea id="notes" placeholder="Add notes about this property…">${esc(p.notes||'')}</textarea></label><div class="saveStatus" id="saveStatus">${p._dirHandle&&!p._metaReadError?'Saved to property.json':'Saved locally in this browser'}</div></div>`;
     wireViewers();if(name==='details')wireMeta();
   }
 
   function wireMeta(){
     const input=$('#tagInput'),assigned=$('#assignedTags'),suggestions=$('#tagSuggestions'),status=$('#saveStatus'),notes=$('#notes');
-    const save=()=>{p.tags=uniqueTags(p.tags||[]);p.notes=notes.value;saveMeta(p);status.textContent='Saved';tagSlot.innerHTML=detailTagsMarkup(p);wireDetailTagClicks()};
+    let notesTimer;
+    const persist=async()=>{
+      p.tags=uniqueTags(p.tags||[]);p.notes=notes.value;cacheMeta(p);
+      if(p._dirHandle&&!p._metaReadError)status.textContent='Saving to property.json…';
+      const savedToFolder=await saveMeta(p);
+      status.textContent=savedToFolder?'Saved to property.json':(p._metaReadError?'property.json could not be read — saved locally':'Saved locally in this browser');
+      tagSlot.innerHTML=detailTagsMarkup(p);wireDetailTagClicks();
+    };
+    const save=()=>{clearTimeout(notesTimer);persist()};
     const renderAssigned=()=>{assigned.innerHTML=(p.tags||[]).map((t,i)=>`<span class="assignedTag">${esc(t)}<button type="button" data-remove-tag="${i}" aria-label="Remove ${esc(t)}">×</button></span>`).join('')};
     const suggested=()=>{
       const q=fold(input.value),selected=new Set((p.tags||[]).map(fold));
@@ -146,7 +185,8 @@ function openProperty(p){
         e.preventDefault();const first=suggested()[0];addTag(input.value.trim()||(first?.tag||''));
       }else if(e.key==='Escape'){suggestions.classList.add('hidden')}
     });
-    notes.addEventListener('input',save);
+    notes.addEventListener('input',()=>{p.notes=notes.value;cacheMeta(p);if(p._dirHandle&&!p._metaReadError)status.textContent='Saving to property.json…';clearTimeout(notesTimer);notesTimer=setTimeout(persist,450)});
+    notes.addEventListener('blur',()=>{clearTimeout(notesTimer);persist()});
     renderAssigned();
   }
 
@@ -184,7 +224,9 @@ function floorName(fn){
   if(s.includes('ground'))return'Ground Floor';if(s.includes('basement'))return'Basement';if(s.match(/(^| )2(nd)?( |$)/))return'2nd Floor';if(s.match(/(^| )3(rd)?( |$)/))return'3rd Floor';if(s.match(/(^| )1(st)?( |$)/))return'1st Floor';return fn.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ');
 }
 async function scanProperty(dir){
-  const p={id:dir.name,listingId:'',address:dir.name,tags:[],photos:[],floorplans:[],listing:[],video:'',favorite:false,notes:'',addedAt:0};
+  const p={id:dir.name,listingId:'',address:dir.name,tags:[],photos:[],floorplans:[],listing:[],video:'',favorite:false,notes:'',addedAt:0,_dirHandle:dir};
+  const hasFolderMeta=await loadFolderMeta(p,dir);
+  if(!hasFolderMeta)loadLocalMeta(p);
   for await(const [name,h] of dir.entries()){
     if(h.kind!=='directory')continue;const kind=name.toLowerCase();
     for await(const [fn,fh] of h.entries()){
@@ -198,17 +240,19 @@ async function scanProperty(dir){
     }
   }
   p.photos.sort((a,b)=>(parseInt(a.fn.match(/_(\d+)\./)?.[1])||0)-(parseInt(b.fn.match(/_(\d+)\./)?.[1])||0));
-  p.photos=p.photos.map(x=>x.url);p.cover=p.photos[0]||'';loadMeta(p);return p;
+  p.photos=p.photos.map(x=>x.url);p.cover=p.photos[0]||'';return p;
 }
 
 $('#openLibrary').onclick=async()=>{
   if(!window.showDirectoryPicker){alert('Folder access is not supported in this browser. Try Chrome or Edge on desktop.');return}
   try{
-    const root=await showDirectoryPicker(),found=[],scanStamp=Date.now();let unseenOffset=0;
+    const root=await showDirectoryPicker({mode:'readwrite'}),found=[],scanStamp=Date.now();let unseenOffset=0;
     for await(const [,h] of root.entries())if(h.kind==='directory'){
       const p=await scanProperty(h);
       if(p.photos.length||p.listing.length||p.floorplans.length){
-        if(!p.addedAt){p.addedAt=scanStamp-(unseenOffset++);saveMeta(p)}
+        if(!p.addedAt)p.addedAt=scanStamp-(unseenOffset++);
+        if(!p._metaFileExists&&!p._metaReadError)await saveMeta(p);
+        else cacheMeta(p);
         found.push(p);
       }
     }
