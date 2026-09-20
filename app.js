@@ -1,5 +1,5 @@
 const samplePhotos=Array.from({length:50},(_,i)=>`sample/Photos/40864709_${i+1}.jpg`);
-const sample={id:'sample-oak-knoll',listingId:'40864709',address:'2 OAK KNOLL Drive',tags:[],cover:samplePhotos[0],photos:samplePhotos,floorplans:[{name:'Ground Floor',url:'sample/Floorplans/ground_floor_487.jpg'},{name:'2nd Floor',url:'sample/Floorplans/2nd_floor_558.jpg'},{name:'3rd Floor',url:'sample/Floorplans/3rd_floor_745.jpg'},{name:'Basement',url:'sample/Floorplans/basement_166.jpg'}],listing:[{name:'Full-page listing screenshot',url:'sample/Listing/screencapture-realtor-ca-real-estate-30301826-2-oak-knoll-drive-hamilton-2026-09-19-10_30_33.png'},{name:'Listing PDF',url:'sample/Listing/36277012-18b6-4546-9422-ed69d5c5f05b.pdf'}],video:'https://tours.vogelcreative.ca/2oakknolldrive',favorite:false,notes:'',addedAt:0};
+const sample={id:'sample-oak-knoll',listingId:'40864709',address:'2 OAK KNOLL Drive',tags:[],cover:samplePhotos[0],photos:samplePhotos,floorplans:[{name:'Ground Floor',url:'sample/Floorplans/ground_floor_487.jpg'},{name:'2nd Floor',url:'sample/Floorplans/2nd_floor_558.jpg'},{name:'3rd Floor',url:'sample/Floorplans/3rd_floor_745.jpg'},{name:'Basement',url:'sample/Floorplans/basement_166.jpg'}],listing:[{name:'Full-page listing screenshot',url:'sample/Listing/screencapture-realtor-ca-real-estate-30301826-2-oak-knoll-drive-hamilton-2026-09-19-10_30_33.png'},{name:'Listing PDF',url:'sample/Listing/36277012-18b6-4546-9422-ed69d5c5f05b.pdf'}],listingUrl:'',videoUrl:'https://tours.vogelcreative.ca/2oakknolldrive',videoFiles:[],favorite:false,notes:'',addedAt:0};
 
 let properties=[sample],viewMode='all',activeTag='';
 let sortMode=localStorage.getItem('listing-library:sort')||'newest';
@@ -48,9 +48,10 @@ async function handlePermission(handle,request=false){
   }catch(e){console.warn('Could not check library folder permission.',e);return'denied'}
 }
 function setLibraryButton(state){
-  const btn=$('#openLibrary');
+  const btn=$('#openLibrary'),add=$('#addProperty');
   btn.textContent=state==='connected'?'Change Library':state==='reconnect'?'Reconnect Library':'Open Library';
   btn.dataset.libraryState=state;
+  add.disabled=state!=='connected';
 }
 function hashPropertySlug(){const m=location.hash.match(/^#property\/(.+)$/);if(!m)return'';try{return decodeURIComponent(m[1])}catch{return m[1]}}
 function findPropertyBySlug(slug){return properties.find(p=>propertySlug(p)===slug)}
@@ -61,10 +62,10 @@ function parseAddedAt(value){
   const n=Number(value);return Number.isFinite(n)?n:0;
 }
 function applyMeta(p,m={}){
-  Object.assign(p,{tags:Array.isArray(m.tags)?m.tags:(p.tags||[]),notes:typeof m.notes==='string'?m.notes:(p.notes||''),favorite:typeof m.favorite==='boolean'?m.favorite:!!p.favorite,addedAt:parseAddedAt(m.addedAt)||p.addedAt||0});
+  Object.assign(p,{tags:Array.isArray(m.tags)?m.tags:(p.tags||[]),notes:typeof m.notes==='string'?m.notes:(p.notes||''),favorite:typeof m.favorite==='boolean'?m.favorite:!!p.favorite,addedAt:parseAddedAt(m.addedAt)||p.addedAt||0,listingUrl:typeof m.listingUrl==='string'?m.listingUrl:(p.listingUrl||''),videoUrl:typeof m.videoUrl==='string'?m.videoUrl:(p.videoUrl||'')});
 }
-function localMetaPayload(p){return {tags:p.tags||[],notes:p.notes||'',favorite:!!p.favorite,addedAt:Number(p.addedAt)||0}}
-function folderMetaPayload(p){return {version:1,favorite:!!p.favorite,tags:p.tags||[],notes:p.notes||'',addedAt:p.addedAt?new Date(Number(p.addedAt)).toISOString():null}}
+function localMetaPayload(p){return {tags:p.tags||[],notes:p.notes||'',favorite:!!p.favorite,addedAt:Number(p.addedAt)||0,listingUrl:p.listingUrl||'',videoUrl:p.videoUrl||''}}
+function folderMetaPayload(p){return {version:1,favorite:!!p.favorite,tags:p.tags||[],notes:p.notes||'',addedAt:p.addedAt?new Date(Number(p.addedAt)).toISOString():null,listingUrl:p.listingUrl||'',videoUrl:p.videoUrl||''}}
 function loadLocalMeta(p){
   try{applyMeta(p,JSON.parse(localStorage.getItem(metaKey(p))||'{}'))}catch{}
 }
@@ -158,7 +159,7 @@ function render(){
   $('#allView').classList.toggle('active',viewMode==='all');
   $('#favView').classList.toggle('active',viewMode==='favourites');
   $('#sortSelect').value=sortMode;
-  grid.innerHTML=shown.map(p=>`<article class="card" data-id="${esc(p.id)}"><div class="cover" style="background-image:url('${p.cover}')"><button class="heart" data-fav="${esc(p.id)}" aria-label="${p.favorite?'Remove from favourites':'Add to favourites'}">${p.favorite?'♥':'♡'}</button></div><div class="cardBody"><h3>${esc(p.address)}</h3>${p.tags?.length?`<div class="cardTags">${p.tags.slice(0,3).map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}</div></article>`).join('');
+  grid.innerHTML=shown.map(p=>`<article class="card" data-id="${esc(p.id)}"><div class="cover ${p.cover?'':'emptyCover'}" ${p.cover?`style="background-image:url('${p.cover}')"`:''}>${p.cover?'':'<span>No photos yet</span>'}<button class="heart" data-fav="${esc(p.id)}" aria-label="${p.favorite?'Remove from favourites':'Add to favourites'}">${p.favorite?'♥':'♡'}</button></div><div class="cardBody"><h3>${esc(p.address)}</h3>${p.tags?.length?`<div class="cardTags">${p.tags.slice(0,3).map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}</div></article>`).join('');
 }
 
 grid.onclick=e=>{
@@ -176,13 +177,17 @@ function showLibrary({historyMode='none'}={}){
   else if(historyMode==='replace')history.replaceState({listingLibrary:true,view:'library'},'',appBase());
   render();
 }
-function openProperty(p,{historyMode='none'}={}){
+function openProperty(p,{historyMode='none',initialTab=''}={}){
   if(historyMode==='push')history.pushState({listingLibrary:true,view:'property',slug:propertySlug(p)},'',propertyUrl(p));
   else if(historyMode==='replace')history.replaceState({listingLibrary:true,view:'property',slug:propertySlug(p)},'',propertyUrl(p));
   lib.classList.add('hidden');detailView.classList.remove('hidden');back.classList.remove('hidden');
   const chips=[p.listingId?`<span class="chip">Listing ${esc(p.listingId)}</span>`:'',p.photos?.length?`<span class="chip">${p.photos.length} photos</span>`:'',p.floorplans?.length?`<span class="chip">${p.floorplans.length} floorplans</span>`:''].filter(Boolean).join('');
-  const tabs=[['photos','Photos',p.photos?.length],['floorplans','Floorplans',p.floorplans?.length],['listing','Listing',p.listing?.length],['video','Video',!!p.video],['details','Details',true]].filter(x=>x[2]);
-  detailView.innerHTML=`<div class="hero" style="background-image:url('${p.cover}')"><div class="heroText"><h2>${esc(p.address)}</h2></div></div><div class="detailTop"><div><div class="chips">${chips}</div><div id="detailTagsSlot">${detailTagsMarkup(p)}</div></div><button class="secondary" id="detailFav">${p.favorite?'♥ Favourite':'♡ Favourite'}</button></div><nav class="tabs">${tabs.map((x,i)=>`<button class="tab ${i===0?'active':''}" data-tab="${x[0]}">${x[1]}</button>`).join('')}</nav><div id="panel"></div>`;
+  const hasVideo=!!(p.videoUrl||(p.videoFiles||[]).length);
+  const hasListing=!!((p.listing||[]).length||p.listingUrl);
+  const isEmpty=!(p.photos?.length||p.floorplans?.length||hasListing||hasVideo);
+  const tabs=[['photos','Photos',p.photos?.length],['floorplans','Floorplans',p.floorplans?.length],['listing','Listing',hasListing],['video','Video',hasVideo],['details','Details',true],['intake','Add Files',!!p._dirHandle]].filter(x=>x[2]);
+  const heroStyle=p.cover?` style="background-image:url('${p.cover}')"`:'';
+  detailView.innerHTML=`<div class="hero ${p.cover?'':'emptyHero'}"${heroStyle}><div class="heroText"><h2>${esc(p.address)}</h2></div></div><div class="detailTop"><div><div class="chips">${chips}</div><div id="detailTagsSlot">${detailTagsMarkup(p)}</div></div><button class="secondary" id="detailFav">${p.favorite?'♥ Favourite':'♡ Favourite'}</button></div><nav class="tabs">${tabs.map(x=>`<button class="tab" data-tab="${x[0]}">${x[1]}</button>`).join('')}</nav><div id="panel"></div>`;
   const panel=$('#panel'),tagSlot=$('#detailTagsSlot');
 
   function wireDetailTagClicks(){
@@ -190,14 +195,21 @@ function openProperty(p,{historyMode='none'}={}){
   }
   wireDetailTagClicks();
 
+  async function refreshCurrent(tabName='intake'){
+    const fresh=await scanProperty(p._dirHandle),idx=properties.findIndex(x=>x.id===p.id);
+    if(idx>=0)properties[idx]=fresh;
+    openProperty(fresh,{historyMode:'none',initialTab:tabName});
+  }
+
   function tab(name){
     document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===name));
     if(name==='photos')panel.innerHTML=`<div class="gallery">${p.photos.map((x,i)=>`<img src="${x}" loading="lazy" data-viewer="photos" data-index="${i}" tabindex="0" alt="Property photo ${i+1}">`).join('')}</div>`;
     if(name==='floorplans')panel.innerHTML=`<div class="gallery floorplans">${p.floorplans.map((x,i)=>`<figure><img src="${x.url}" loading="lazy" data-viewer="floorplans" data-index="${i}" tabindex="0" alt="${esc(x.name)}"><figcaption>${esc(x.name)}</figcaption></figure>`).join('')}</div>`;
-    if(name==='listing')panel.innerHTML=p.listing.map(x=>`<div class="fileCard"><span>${esc(x.name)}</span><a href="${x.url}" target="_blank">Open ↗</a></div>`).join('');
-    if(name==='video')panel.innerHTML=p.video?`<div class="fileCard"><span>Property video / virtual tour</span><a href="${p.video}" target="_blank">Open video ↗</a></div>`:'';
+    if(name==='listing')panel.innerHTML=`${p.listingUrl?`<div class="fileCard"><span>Listing page</span><a href="${esc(p.listingUrl)}" target="_blank" rel="noopener">Open ↗</a></div>`:''}${(p.listing||[]).map(x=>`<div class="fileCard"><span>${esc(x.name)}</span><a href="${x.url}" target="_blank">Open ↗</a></div>`).join('')}`;
+    if(name==='video')panel.innerHTML=`${p.videoUrl?`<div class="fileCard"><span>Property video / virtual tour</span><a href="${esc(p.videoUrl)}" target="_blank" rel="noopener">Open video ↗</a></div>`:''}${(p.videoFiles||[]).map(x=>`<div class="fileCard"><span>${esc(x.name)}</span><a href="${x.url}" target="_blank">Open ↗</a></div>`).join('')}`;
     if(name==='details')panel.innerHTML=`<div class="notes"><div class="fieldGroup"><div class="fieldHeading">Tags</div><div class="tagEditor"><div id="assignedTags" class="assignedTags"></div><div class="tagInputWrap"><input id="tagInput" type="text" autocomplete="off" placeholder="Add a tag"><div id="tagSuggestions" class="tagSuggestions hidden"></div></div></div></div><label class="fieldLabel">Notes<textarea id="notes" placeholder="Add notes about this property…">${esc(p.notes||'')}</textarea></label><div class="saveStatus" id="saveStatus">${p._dirHandle&&!p._metaReadError?'Saved to property.json':'Saved locally in this browser'}</div></div>`;
-    wireViewers();if(name==='details')wireMeta();
+    if(name==='intake')panel.innerHTML=`<section class="intake"><div class="intakeIntro"><h3>${isEmpty?'Add files to this property':'Add more files'}</h3><p>Choose files or drag them onto a section. Listing Library copies them into this property's archive folders.</p></div><div class="intakeGrid"><div class="dropZone" data-folder="Photos"><strong>Photos</strong><span>JPG, PNG or WebP</span><label class="uploadButton">Choose photos<input type="file" hidden multiple accept="image/jpeg,image/png,image/webp" data-upload="Photos"></label></div><div class="dropZone" data-folder="Floorplans"><strong>Floorplans</strong><span>JPG, PNG or WebP</span><label class="uploadButton">Choose floorplans<input type="file" hidden multiple accept="image/jpeg,image/png,image/webp" data-upload="Floorplans"></label></div><div class="dropZone" data-folder="Listing"><strong>Listing</strong><span>PDF, image or saved page</span><label class="uploadButton">Choose listing files<input type="file" hidden multiple accept="application/pdf,image/*,.html,.htm" data-upload="Listing"></label></div><div class="dropZone" data-folder="Video"><strong>Video</strong><span>MOV, MP4, M4V or WebM</span><label class="uploadButton">Choose video files<input type="file" hidden multiple accept="video/mp4,video/quicktime,video/webm,.m4v" data-upload="Video"></label></div></div><div class="urlGrid"><label>Listing URL<input id="listingUrlInput" type="url" placeholder="https://…" value="${esc(p.listingUrl||'')}"></label><button class="secondary" id="saveListingUrl">Save URL</button><label>Video / tour URL<input id="videoUrlInput" type="url" placeholder="https://…" value="${esc(p.videoUrl||'')}"></label><button class="secondary" id="saveVideoUrl">Save URL</button></div><div class="saveStatus" id="intakeStatus"></div></section>`;
+    wireViewers();if(name==='details')wireMeta();if(name==='intake')wireIntake();
   }
 
   function wireMeta(){
@@ -231,19 +243,29 @@ function openProperty(p,{historyMode='none'}={}){
     input.addEventListener('focus',renderSuggestions);
     input.addEventListener('blur',()=>setTimeout(()=>suggestions.classList.add('hidden'),80));
     input.addEventListener('input',()=>{
-      if(input.value.includes(',')){
-        const bits=input.value.split(','),tail=bits.pop();bits.forEach(addTag);input.value=tail||'';
-      }
+      if(input.value.includes(',')){const bits=input.value.split(','),tail=bits.pop();bits.forEach(addTag);input.value=tail||''}
       renderSuggestions();
     });
-    input.addEventListener('keydown',e=>{
-      if(e.key==='Enter'||e.key===','){
-        e.preventDefault();const first=suggested()[0];addTag(input.value.trim()||(first?.tag||''));
-      }else if(e.key==='Escape'){suggestions.classList.add('hidden')}
-    });
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();const first=suggested()[0];addTag(input.value.trim()||(first?.tag||''))}else if(e.key==='Escape'){suggestions.classList.add('hidden')}});
     notes.addEventListener('input',()=>{p.notes=notes.value;cacheMeta(p);if(p._dirHandle&&!p._metaReadError)status.textContent='Saving to property.json…';clearTimeout(notesTimer);notesTimer=setTimeout(persist,450)});
-    notes.addEventListener('blur',()=>{clearTimeout(notesTimer);persist()});
-    renderAssigned();
+    notes.addEventListener('blur',()=>{clearTimeout(notesTimer);persist()});renderAssigned();
+  }
+
+  function wireIntake(){
+    const status=$('#intakeStatus');
+    const upload=async(folder,files)=>{
+      const list=[...files];if(!list.length)return;
+      status.textContent=`Adding ${list.length} ${list.length===1?'file':'files'}…`;
+      try{for(const file of list)await copyFileIntoProperty(p,folder,file);status.textContent='Files added.';await refreshCurrent('intake')}catch(e){console.error(e);status.textContent='Could not add one or more files.'}
+    };
+    panel.querySelectorAll('[data-upload]').forEach(input=>input.addEventListener('change',()=>upload(input.dataset.upload,input.files)));
+    panel.querySelectorAll('.dropZone').forEach(zone=>{
+      zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragOver')});
+      zone.addEventListener('dragleave',()=>zone.classList.remove('dragOver'));
+      zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragOver');upload(zone.dataset.folder,e.dataTransfer.files)});
+    });
+    $('#saveListingUrl').onclick=async()=>{status.textContent='Saving listing URL…';try{await savePropertyUrl(p,'listing',$('#listingUrlInput').value.trim());status.textContent='Listing URL saved.';await refreshCurrent('intake')}catch(e){console.error(e);status.textContent='Could not save that URL.'}};
+    $('#saveVideoUrl').onclick=async()=>{status.textContent='Saving video URL…';try{await savePropertyUrl(p,'video',$('#videoUrlInput').value.trim());status.textContent='Video URL saved.';await refreshCurrent('intake')}catch(e){console.error(e);status.textContent='Could not save that URL.'}};
   }
 
   function wireViewers(){
@@ -253,9 +275,10 @@ function openProperty(p,{historyMode='none'}={}){
     });
   }
 
-  tab(tabs[0][0]);
+  const firstTab=initialTab&&tabs.some(x=>x[0]===initialTab)?initialTab:(isEmpty&&p._dirHandle?'intake':tabs[0][0]);
+  tab(firstTab);
   document.querySelector('.tabs').onclick=e=>{if(e.target.dataset.tab)tab(e.target.dataset.tab)};
-  $('#detailFav').onclick=()=>{p.favorite=!p.favorite;saveMeta(p);openProperty(p,{historyMode:'none'})};
+  $('#detailFav').onclick=()=>{p.favorite=!p.favorite;saveMeta(p);openProperty(p,{historyMode:'none',initialTab:firstTab})};
 }
 
 function openViewer(items,start=0,label='Photo'){
@@ -276,27 +299,59 @@ $('#favView').onclick=()=>{viewMode='favourites';render()};
 $('#tagFilter').onchange=e=>{activeTag=e.target.value;render()};
 $('#sortSelect').onchange=e=>{sortMode=e.target.value;localStorage.setItem('listing-library:sort',sortMode);render()};
 
+function xmlEscape(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+function weblocContents(url){return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>URL</key><string>${xmlEscape(url)}</string></dict></plist>\n`}
+async function fileExists(dir,name){try{await dir.getFileHandle(name);return true}catch(e){if(e?.name==='NotFoundError')return false;throw e}}
+async function uniqueFileName(dir,name){
+  if(!(await fileExists(dir,name)))return name;
+  const dot=name.lastIndexOf('.'),stem=dot>0?name.slice(0,dot):name,ext=dot>0?name.slice(dot):'';
+  for(let i=2;i<1000;i++){const candidate=`${stem}-${i}${ext}`;if(!(await fileExists(dir,candidate)))return candidate}
+  return `${stem}-${Date.now()}${ext}`;
+}
+async function writeTextFile(dir,name,text){const fh=await dir.getFileHandle(name,{create:true}),w=await fh.createWritable();await w.write(text);await w.close()}
+async function copyFileIntoProperty(p,folder,file){
+  if(!p._dirHandle)throw new Error('This property is not backed by a folder.');
+  const target=await p._dirHandle.getDirectoryHandle(folder,{create:true}),name=await uniqueFileName(target,file.name),fh=await target.getFileHandle(name,{create:true}),w=await fh.createWritable();
+  await w.write(file);await w.close();return name;
+}
+async function savePropertyUrl(p,type,url){
+  if(url&&!/^https?:\/\//i.test(url))throw new Error('Use a full http or https URL.');
+  if(type==='listing')p.listingUrl=url;else p.videoUrl=url;
+  await saveMeta(p);
+  if(p._dirHandle){const folder=await p._dirHandle.getDirectoryHandle(type==='listing'?'Listing':'Video',{create:true}),name=type==='listing'?'listing.webloc':'video.webloc';if(url)await writeTextFile(folder,name,weblocContents(url));else{try{await folder.removeEntry(name)}catch(e){if(e?.name!=='NotFoundError')throw e}}}
+}
+async function directoryExists(root,name){try{await root.getDirectoryHandle(name);return true}catch(e){if(e?.name==='NotFoundError')return false;throw e}}
+function showAddPropertyDialog(){
+  if(!libraryConnected||!rememberedRoot)return;
+  const dialog=document.createElement('dialog');dialog.className='propertyDialog';dialog.innerHTML=`<form method="dialog"><div class="dialogHead"><h2>Add Property</h2><button type="button" class="dialogClose" aria-label="Close">×</button></div><label>Property address<input id="newPropertyAddress" type="text" autocomplete="off" placeholder="e.g. 24 ARKLEDUN Avenue" autofocus></label><p class="dialogHelp">Listing Library will create Photos, Floorplans, Listing and Video folders inside the property folder.</p><div id="dialogError" class="dialogError"></div><div class="dialogActions"><button type="button" class="secondary" data-cancel>Cancel</button><button type="submit" class="primary">Create Property</button></div></form>`;document.body.appendChild(dialog);
+  const form=dialog.querySelector('form'),input=dialog.querySelector('#newPropertyAddress'),error=dialog.querySelector('#dialogError');
+  const close=()=>dialog.close();dialog.querySelector('.dialogClose').onclick=close;dialog.querySelector('[data-cancel]').onclick=close;dialog.addEventListener('close',()=>dialog.remove());
+  form.addEventListener('submit',async e=>{e.preventDefault();const address=input.value.trim();error.textContent='';if(!address){error.textContent='Enter a property address.';input.focus();return}if(/[\\/]/.test(address)){error.textContent='The address cannot contain / or \\.';return}try{if(await directoryExists(rememberedRoot,address)){error.textContent='A folder with that name already exists in this library.';return}const dir=await rememberedRoot.getDirectoryHandle(address,{create:true});for(const name of ['Photos','Floorplans','Listing','Video'])await dir.getDirectoryHandle(name,{create:true});const p={id:address,listingId:'',address,tags:[],photos:[],floorplans:[],listing:[],listingUrl:'',videoUrl:'',videoFiles:[],cover:'',favorite:false,notes:'',addedAt:Date.now(),_dirHandle:dir};await writeFolderMeta(p);cacheMeta(p);properties.push(p);dialog.close();render();openProperty(p,{historyMode:'push',initialTab:'intake'})}catch(err){console.error(err);error.textContent='Could not create the property folder.'}});
+  dialog.showModal();setTimeout(()=>input.focus(),0);
+}
+$('#addProperty').onclick=showAddPropertyDialog;
+
 function floorName(fn){
   const s=fn.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').toLowerCase();
   if(s.includes('ground'))return'Ground Floor';if(s.includes('basement'))return'Basement';if(s.match(/(^| )2(nd)?( |$)/))return'2nd Floor';if(s.match(/(^| )3(rd)?( |$)/))return'3rd Floor';if(s.match(/(^| )1(st)?( |$)/))return'1st Floor';return fn.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ');
 }
 async function scanProperty(dir){
-  const p={id:dir.name,listingId:'',address:dir.name,tags:[],photos:[],floorplans:[],listing:[],video:'',favorite:false,notes:'',addedAt:0,_dirHandle:dir};
-  const hasFolderMeta=await loadFolderMeta(p,dir);
-  if(!hasFolderMeta)loadLocalMeta(p);
+  const p={id:dir.name,listingId:'',address:dir.name,tags:[],photos:[],floorplans:[],listing:[],listingUrl:'',videoUrl:'',videoFiles:[],favorite:false,notes:'',addedAt:0,_dirHandle:dir};
+  const hasFolderMeta=await loadFolderMeta(p,dir);if(!hasFolderMeta)loadLocalMeta(p);
   for await(const [name,h] of dir.entries()){
     if(h.kind!=='directory')continue;const kind=name.toLowerCase();
     for await(const [fn,fh] of h.entries()){
-      if(fh.kind!=='file')continue;const file=await fh.getFile(),url=URL.createObjectURL(file);
+      if(fh.kind!=='file')continue;const file=await fh.getFile();
       if(kind==='photos'&&/\.(jpe?g|png|webp)$/i.test(fn)){
-        p.photos.push({fn,url});
-        if(!p.listingId){const m=fn.match(/^(\d+)_\d+\.[^.]+$/);if(m)p.listingId=m[1]}
-      }else if(kind==='floorplans'&&/\.(jpe?g|png|webp)$/i.test(fn))p.floorplans.push({name:floorName(fn),url});
-      else if(kind==='listing')p.listing.push({name:fn,url});
-      else if(kind==='video'&&fn.toLowerCase().endsWith('.webloc')){const txt=await file.text();p.video=(txt.match(/<string>(https?:\/\/[^<]+)<\/string>/)||[])[1]||''}
+        const url=URL.createObjectURL(file);p.photos.push({fn,url});if(!p.listingId){const m=fn.match(/^(\d+)_\d+\.[^.]+$/);if(m)p.listingId=m[1]}
+      }else if(kind==='floorplans'&&/\.(jpe?g|png|webp)$/i.test(fn))p.floorplans.push({name:floorName(fn),url:URL.createObjectURL(file)});
+      else if(kind==='listing'&&fn.toLowerCase().endsWith('.webloc')){const txt=await file.text();p.listingUrl=(txt.match(/<string>(https?:\/\/[^<]+)<\/string>/)||[])[1]||p.listingUrl}
+      else if(kind==='listing')p.listing.push({name:fn,url:URL.createObjectURL(file)});
+      else if(kind==='video'&&fn.toLowerCase().endsWith('.webloc')){const txt=await file.text();p.videoUrl=(txt.match(/<string>(https?:\/\/[^<]+)<\/string>/)||[])[1]||p.videoUrl}
+      else if(kind==='video'&&/\.(mp4|mov|m4v|webm)$/i.test(fn))p.videoFiles.push({name:fn,url:URL.createObjectURL(file)});
     }
   }
-  p.photos.sort((a,b)=>(parseInt(a.fn.match(/_(\d+)\./)?.[1])||0)-(parseInt(b.fn.match(/_(\d+)\./)?.[1])||0));
+  p.photos.sort((a,b)=>{const an=parseInt(a.fn.match(/_(\d+)\./)?.[1]),bn=parseInt(b.fn.match(/_(\d+)\./)?.[1]);if(Number.isFinite(an)&&Number.isFinite(bn))return an-bn;return a.fn.localeCompare(b.fn,undefined,{numeric:true,sensitivity:'base'})});
   p.photos=p.photos.map(x=>x.url);p.cover=p.photos[0]||'';return p;
 }
 
@@ -304,17 +359,14 @@ async function scanLibraryRoot(root){
   const found=[],scanStamp=Date.now();let unseenOffset=0;
   for await(const [,h] of root.entries())if(h.kind==='directory'){
     const p=await scanProperty(h);
-    if(p.photos.length||p.listing.length||p.floorplans.length){
+    if(p.photos.length||p.listing.length||p.floorplans.length||p.listingUrl||p.videoUrl||p.videoFiles.length||p._metaFileExists){
       if(!p.addedAt)p.addedAt=scanStamp-(unseenOffset++);
       if(!p._metaFileExists&&!p._metaReadError)await saveMeta(p);
       else cacheMeta(p);
       found.push(p);
     }
   }
-  if(found.length){
-    properties=found;activeTag='';rememberedRoot=root;libraryConnected=true;setLibraryButton('connected');routeFromLocation({replaceCurrent:true});return true;
-  }
-  return false;
+  properties=found;activeTag='';rememberedRoot=root;libraryConnected=true;setLibraryButton('connected');routeFromLocation({replaceCurrent:true});return true;
 }
 
 $('#openLibrary').onclick=async()=>{
