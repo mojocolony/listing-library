@@ -2,7 +2,7 @@
 
 A personal library for collecting, organizing, and browsing real estate listings.
 
-## v0.1.0
+## v0.1.1
 
 The first prototype uses **2 OAK KNOLL Drive** as the built-in reference property. It includes a property grid, favourites, search, photo gallery, floorplans, listing files, video link, and notes UI.
 
@@ -27,3 +27,8 @@ On supported desktop browsers, **Open Library** lets you choose a local `Propert
 4. Select `main` and `/ (root)`, then save.
 
 No build process or dependencies are required.
+
+
+## v0.1.1
+- Added click-to-enlarge viewer for photos and floorplans.
+- Added previous/next controls, keyboard arrow navigation, Escape-to-close, and item count.
