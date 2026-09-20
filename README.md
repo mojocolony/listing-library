@@ -1,41 +1,19 @@
-# Listing Library
+# Listing Library v0.1.3 update
 
-A personal library for collecting, organizing, and browsing real estate listings.
+Upload these files to the root of the existing `listing-library` repository, replacing the existing versions:
 
-## v0.1.2
+- `index.html`
+- `app.js`
+- `styles.css`
 
-The first prototype uses **2 OAK KNOLL Drive** as the built-in reference property. It includes a property grid, favourites, search, photo gallery, floorplans, listing files, video link, and notes UI.
+Do not re-upload the `sample` folder or any property images.
 
-### Expected folder structure
-
-```text
-Property Library/
-  Property Name/
-    Photos/
-    Floorplans/
-    Listing/
-    Video/
-```
-
-On supported desktop browsers, **Open Library** lets you choose a local `Property Library` folder and scans each property folder. The original files are not changed.
-
-## Deploy to GitHub Pages
-
-1. Create a repository named `listing-library`.
-2. Upload everything in this folder to the repository root.
-3. In **Settings → Pages**, choose **Deploy from a branch**.
-4. Select `main` and `/ (root)`, then save.
-
-No build process or dependencies are required.
-
-
-## v0.1.2
-- Added click-to-enlarge viewer for photos and floorplans.
-- Added previous/next controls, keyboard arrow navigation, Escape-to-close, and item count.
-
-
-## v0.1.2
-- Visible version number in header
-- Lucide Houses brand icon
-- Photo and floorplan viewer handlers attached directly to each image
-- Cache-busted CSS and JavaScript asset URLs
+Changes in v0.1.3:
+- hides Floorplans, Listing, and Video tabs when that material is absent
+- removes zero-count floorplan badges
+- prevents missing videos from falling back to another property's URL
+- adds floorplan labels
+- fixes chip text vertical alignment
+- adds locally saved City, Neighbourhood, Tags, and Notes fields
+- includes tags in search
+- enlarges the library cards into a three-column photographic grid on wider screens
