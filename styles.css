@@ -10,3 +10,15 @@
 /* v0.1.4 */
 .chip{height:40px;min-height:40px;padding:0 14px;display:inline-grid;place-items:center;line-height:1;margin:0;vertical-align:middle}
 .chips{align-items:center}
+
+/* v0.1.5 */
+.mark img{width:22px;height:22px;display:block}
+.tools{align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.viewSwitch{display:inline-flex;border:1px solid #c8c5bd;border-radius:10px;overflow:hidden;background:#faf9f6}
+.viewBtn{border:0;background:transparent;padding:9px 12px;color:var(--muted);cursor:pointer;border-right:1px solid #d8d5ce}
+.viewBtn:last-child{border-right:0}.viewBtn.active{background:#fff;color:var(--ink)}
+.tools select{border:1px solid #c8c5bd;background:#faf9f6;border-radius:10px;padding:10px 32px 10px 12px;color:var(--ink);font:inherit}
+.chip{height:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;line-height:40px;box-sizing:border-box}
+.detailTop>div:first-child{min-width:0}.detailTags{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.tagChip{border:1px solid #d8d5ce;background:#ebe9e3;color:#555954;border-radius:999px;padding:5px 9px;font-size:11px;cursor:pointer}.tagChip:hover{background:#e2dfd7;color:var(--ink)}
+@media(max-width:850px){.toolbar{align-items:stretch;gap:16px;flex-direction:column}.tools{justify-content:flex-start}.tools input{flex:1;min-width:180px}}
