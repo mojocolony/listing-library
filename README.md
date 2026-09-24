@@ -1,18 +1,24 @@
-# Listing Library v0.2.0 update
+# Listing Library v0.2.1 update
 
-Replace these files in the GitHub repository:
+Changed/new files only. Upload these to the repository root, preserving the `icons` folder:
 
 - `index.html`
 - `app.js`
-- `styles.css`
+- `manifest.webmanifest`
+- `sw.js`
+- `icons/houses.svg`
+- `icons/icon-192.png`
+- `icons/icon-512.png`
+- `icons/maskable-512.png`
+- `icons/apple-touch-icon.png`
 
-No property photos, PDFs, floorplans, videos, or other archived property files need to be re-uploaded.
+`styles.css` is unchanged from v0.2.0.
 
-## New in v0.2.0
+## What changed
 
-- `+ Add Property` creates a property folder plus `Photos`, `Floorplans`, `Listing`, and `Video` subfolders.
-- A new empty property opens directly to **Add Files**.
-- Photos, floorplans, listing files, and video files can be selected or dragged into the app and are copied into the correct archive folder.
-- Listing and video/tour URLs can be saved independently; the app stores them in `property.json` and as `.webloc` files.
-- Empty properties created by Listing Library remain visible in the library.
-- Existing properties gain an **Add Files** tab for adding more material later.
+- Listing Library is now installable as a standalone PWA in Chrome.
+- Added a web-app manifest, local Houses icon assets, and a lightweight service worker.
+- The service worker is network-first so normal GitHub Pages updates are not hidden behind an aggressive offline cache.
+- Header icon and favicon now use the local Lucide `houses` asset.
+
+After deploying, reload the site once so Chrome sees the new manifest/service worker, then use Chrome's install option for the site.

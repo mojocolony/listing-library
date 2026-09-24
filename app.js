@@ -408,3 +408,13 @@ function routeFromLocation({replaceCurrent=false}={}){
 
 routeFromLocation({replaceCurrent:true});
 restoreRememberedLibrary();
+
+// Register a lightweight service worker so Listing Library can be installed
+// as a standalone Chrome app. The worker is network-first to avoid stale app
+// files during frequent GitHub Pages updates.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker registration failed.', err));
+  });
+}
+
