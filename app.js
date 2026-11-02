@@ -355,7 +355,7 @@ async function scanProperty(dir){
   p.photos=p.photos.map(x=>x.url);p.cover=p.photos[0]||'';return p;
 }
 
-async function scanLibraryRoot(root){
+async function scanLibraryRoot(root,{navigate=true}={}){
   const found=[],scanStamp=Date.now();let unseenOffset=0;
   for await(const [,h] of root.entries())if(h.kind==='directory'){
     const p=await scanProperty(h);
@@ -366,7 +366,7 @@ async function scanLibraryRoot(root){
       found.push(p);
     }
   }
-  properties=found;activeTag='';rememberedRoot=root;libraryConnected=true;setLibraryButton('connected');routeFromLocation({replaceCurrent:true});return true;
+  properties=found;activeTag='';rememberedRoot=root;libraryConnected=true;setLibraryButton('connected');if(navigate)routeFromLocation({replaceCurrent:true});return true;
 }
 
 $('#openLibrary').onclick=async()=>{
@@ -389,7 +389,7 @@ async function restoreRememberedLibrary(){
   if(!rememberedRoot){setLibraryButton('open');return}
   const permission=await handlePermission(rememberedRoot,false);
   if(permission==='granted'){
-    try{await scanLibraryRoot(rememberedRoot)}catch(e){console.warn('Could not reopen the remembered library.',e);setLibraryButton('reconnect')}
+    try{await scanLibraryRoot(rememberedRoot,{navigate:false})}catch(e){console.warn('Could not reopen the remembered library.',e);setLibraryButton('reconnect')}
   }else setLibraryButton('reconnect');
 }
 
@@ -406,8 +406,15 @@ function routeFromLocation({replaceCurrent=false}={}){
   showLibrary({historyMode:replaceCurrent?'replace':'none'});
 }
 
-routeFromLocation({replaceCurrent:true});
-restoreRememberedLibrary();
+async function initializeApp(){
+  try{await restoreRememberedLibrary()}
+  catch(e){console.warn('Could not initialize Listing Library.',e);setLibraryButton(rememberedRoot?'reconnect':'open')}
+  finally{
+    try{routeFromLocation({replaceCurrent:true})}
+    finally{document.documentElement.classList.remove('booting')}
+  }
+}
+initializeApp();
 
 // Register a lightweight service worker so Listing Library can be installed
 // as a standalone Chrome app. The worker is network-first to avoid stale app
