@@ -291,6 +291,7 @@ function openViewer(items,start=0,label='Photo'){
   overlay.querySelector('.viewerClose').onclick=close;overlay.querySelector('.viewerPrev').onclick=e=>{e.stopPropagation();move(-1)};overlay.querySelector('.viewerNext').onclick=e=>{e.stopPropagation();move(1)};overlay.onclick=e=>{if(e.target===overlay)close()};overlay.querySelector('figure').onclick=e=>e.stopPropagation();document.addEventListener('keydown',keys);show();overlay.querySelector('.viewerClose').focus();
 }
 
+$('#homeLink').onclick=e=>{e.preventDefault();viewMode='all';activeTag='';$('#search').value='';showLibrary({historyMode:hashPropertySlug()?'push':'none'})};
 back.onclick=()=>showLibrary({historyMode:'push'});
 window.addEventListener('popstate',()=>routeFromLocation());
 $('#search').oninput=render;

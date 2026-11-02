@@ -17,14 +17,14 @@
     #bootStatus { display: none; }
     html.booting #bootStatus { display: block; margin: 34px 4vw; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #777a75; }
   </style>
-  <link rel="stylesheet" href="styles.css?v=0.2.2">
+  <link rel="stylesheet" href="styles.css?v=0.2.3">
 </head>
 <body>
 <header>
   <div class="brand">
-    <div class="mark" aria-hidden="true"><img src="icons/houses.svg" alt=""></div>
+    <a id="homeLink" class="mark" href="./" aria-label="Home — all properties" title="Home — all properties"><img src="icons/houses.svg" alt=""></a>
     <div>
-      <div class="brandTitle"><h1>Listing Library</h1><span class="version">v0.2.2</span></div>
+      <div class="brandTitle"><h1>Listing Library</h1><span class="version">v0.2.3</span></div>
       <span>Personal real estate archive</span>
     </div>
   </div>
@@ -62,10 +62,10 @@
       </div>
     </div>
     <div id="grid" class="grid"></div>
-    <div class="hint"><strong>v0.2.2</strong> · Installable desktop app; add properties and copy files directly into the archive; metadata remains stored in property.json.</div>
+    <div class="hint"><strong>v0.2.3</strong> · Installable desktop app; add properties and copy files directly into the archive; metadata remains stored in property.json.</div>
   </section>
   <section id="detailView" class="hidden"><div id="detail"></div></section>
 </main>
-<script src="app.js?v=0.2.2"></script>
+<script src="app.js?v=0.2.3"></script>
 </body>
 </html>

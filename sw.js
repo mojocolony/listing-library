@@ -1,9 +1,9 @@
-const CACHE_NAME = 'listing-library-v0.2.2';
+const CACHE_NAME = 'listing-library-v0.2.3';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=0.2.2',
-  './app.js?v=0.2.2',
+  './styles.css?v=0.2.3',
+  './app.js?v=0.2.3',
   './manifest.webmanifest',
   './icons/houses.svg',
   './icons/icon-192.png',
